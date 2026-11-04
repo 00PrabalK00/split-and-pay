@@ -56,6 +56,8 @@ export default function GoogleSignInButton({ onCredential, onError }) {
         callback: (googleResponse) => onCredentialRef.current(googleResponse.credential),
       });
       window.google.accounts.id.renderButton(buttonContainerRef.current, GoogleSignIn.BUTTON_OPTIONS);
+      // One Tap: lists the Google accounts signed in to this browser so the user can pick one
+      window.google.accounts.id.prompt();
     }
 
     setUpButton().catch((error) => {
