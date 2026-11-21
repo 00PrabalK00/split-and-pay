@@ -14,6 +14,18 @@ const VISIBLE_TO_USER = `(
   OR EXISTS (SELECT 1 FROM expense_splits mine WHERE mine.expense_id = expenses.id AND mine.user_id = $1)
 )`;
 
+// True while an open part payment sits between the payer and someone who still owes on this expense.
+// That payment was made against the balance this expense is part of, so changing or removing the
+// expense would leave the payment counting against amounts that no longer exist.
+const HAS_OPEN_PART_PAYMENT = `EXISTS (
+  SELECT 1 FROM expense_splits owed
+  JOIN settlements part_payment ON part_payment.is_partial AND part_payment.closed_by IS NULL
+    AND part_payment.currency = expenses.currency
+    AND ((part_payment.from_user = owed.user_id AND part_payment.to_user = expenses.paid_by)
+      OR (part_payment.from_user = expenses.paid_by AND part_payment.to_user = owed.user_id))
+  WHERE owed.expense_id = expenses.id AND owed.user_id <> expenses.paid_by AND owed.settled_at IS NULL
+)`;
+
 const EXPENSE_COLUMNS = `
   expenses.id, expenses.description, expenses.amount_minor, expenses.currency, expenses.split_type,
   expenses.spent_on, expenses.notes, expenses.created_at, expenses.updated_at, expenses.created_by,
@@ -30,7 +42,8 @@ const EXPENSE_COLUMNS = `
   ) AS splits,
   (SELECT COUNT(*)::int FROM expense_comments WHERE expense_comments.expense_id = expenses.id) AS comment_count,
   (SELECT COUNT(*)::int FROM expense_attachments WHERE expense_attachments.expense_id = expenses.id)
-    AS attachment_count`;
+    AS attachment_count,
+  ${HAS_OPEN_PART_PAYMENT} AS has_part_payment`;
 
 const EXPENSE_JOINS = `
   FROM expenses
@@ -265,6 +278,16 @@ async function lockExpenseForChange(client, expenseId, userId, action) {
   if (settledShareCount > 0) {
     throw new HttpError(409, `Someone has already settled part of this expense, so it can't be ${action === "edit" ? "edited" : "deleted"}`);
   }
+  const { rows: partPaymentRows } = await client.query(
+    `SELECT ${HAS_OPEN_PART_PAYMENT} AS has_part_payment FROM expenses WHERE expenses.id = $1`,
+    [expenseId]
+  );
+  if (partPaymentRows[0].has_part_payment) {
+    throw new HttpError(
+      409,
+      `A part payment has been made towards this expense, so it can't be ${action === "edit" ? "edited" : "deleted"} until you settle up in full`
+    );
+  }
 }
 
 /** Replaces everything about an expense, its shares included. Same body as createExpense. */
@@ -298,7 +321,8 @@ async function updateExpense(expenseId, body, userId) {
 
 /**
  * Soft-deletes an expense. Only whoever added or paid for it can, and only while nobody has
- * settled a share of it: after that, deleting it would silently change what a settlement covered.
+ * settled a share of it or made a part payment towards it: after that, deleting it would silently
+ * change what a payment covered.
  */
 async function deleteExpense(expenseId, userId) {
   await withTransaction(async (client) => {

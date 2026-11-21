@@ -261,3 +261,39 @@ test("a part payment can't be more than what's owed, and paying exactly the bala
   assert.equal(exact.body.data.is_partial, false);
   assert.equal(exact.body.data.settled_share_count, 1);
 });
+
+test("an expense a part payment was made towards can't be edited or deleted until settled in full", async () => {
+  const { asha, bala, chen } = await setup();
+  const both = [asha.user.id, bala.user.id];
+  const covered = await addExpense(asha.client, expenseBody(asha.user.id, both, 3000)); // Bala owes Asha $15
+  // Chen isn't part of the payment between Bala and Asha, so this one stays editable
+  const other = await addExpense(asha.client, expenseBody(asha.user.id, [asha.user.id, chen.user.id], 2000));
+
+  const partial = await bala.client.post("/settlements", {
+    user_id: asha.user.id,
+    currency: "USD",
+    net_minor: -1500,
+    amount_minor: 400,
+  });
+  assert.equal(partial.status, 201);
+
+  const listed = (await asha.client.get("/expenses")).body.data;
+  assert.equal(listed.find((expense) => expense.id === covered).has_part_payment, true);
+  assert.equal(listed.find((expense) => expense.id === other).has_part_payment, false);
+
+  const edit = await asha.client.put(`/expenses/${covered}`, expenseBody(asha.user.id, both, 100));
+  assert.equal(edit.status, 409);
+  assert.match(edit.body.message, /part payment/);
+  assert.equal((await asha.client.delete(`/expenses/${covered}`)).status, 409);
+  assert.equal((await asha.client.get(`/expenses/${covered}`)).body.data.amount_minor, 3000);
+  assert.equal(
+    (await asha.client.put(`/expenses/${other}`, expenseBody(asha.user.id, [asha.user.id, chen.user.id], 4000))).status,
+    200
+  );
+
+  // Settling in full closes the part payment; the share is now settled, which keeps it locked as before
+  await bala.client.post("/settlements", { user_id: asha.user.id, currency: "USD", net_minor: -1100 });
+  const after = (await asha.client.get(`/expenses/${covered}`)).body.data;
+  assert.equal(after.has_part_payment, false);
+  assert.equal((await asha.client.delete(`/expenses/${covered}`)).status, 409);
+});
