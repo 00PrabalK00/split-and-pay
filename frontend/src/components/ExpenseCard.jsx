@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { expenseRoute } from "../constants/constants";
 import { formatDay } from "../utils/dates";
 import { formatBasisPoints, formatMinor } from "../utils/money";
 import Avatar from "./Avatar";
-import { CheckIcon, TrashIcon } from "./Icons";
+import { ChatIcon, CheckIcon, PaperclipIcon, TrashIcon, UsersIcon } from "./Icons";
 
 // Long splits are cut to this many rows so tiles in the grid stay a similar height
 const VISIBLE_SPLITS = 4;
 
 // One line from the signed-in user's point of view, like Splitwise's "you lent" / "you borrowed"
-function YourPosition({ expense, currentUserId }) {
+export function YourPosition({ expense, currentUserId }) {
   const format = (amountMinor) => formatMinor(amountMinor, expense.currency);
   const yourSplit = expense.splits.find((split) => split.user_id === currentUserId);
 
@@ -50,7 +52,7 @@ function YourPosition({ expense, currentUserId }) {
   );
 }
 
-function SplitRow({ split, expense, currentUserId }) {
+export function SplitRow({ split, expense, currentUserId }) {
   const isPayer = split.user_id === expense.paid_by.id;
   const isSettled = !isPayer && Boolean(split.settled_at);
   return (
@@ -91,16 +93,30 @@ export default function ExpenseCard({ expense, currentUserId, onDelete, isDeleti
 
   return (
     <article
-      className={`@container flex flex-col rounded-2xl border p-4 shadow-sm transition-shadow hover:shadow-md ${
+      className={`@container relative flex flex-col rounded-2xl border p-4 shadow-sm transition-shadow hover:shadow-md ${
         isFullySettled ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"
       }`}
     >
       <header className="flex flex-col-reverse gap-1 @[17rem]:flex-row @[17rem]:items-start @[17rem]:justify-between @[17rem]:gap-4">
         <div className="min-w-0">
-          <h3 className="line-clamp-2 font-semibold text-balance break-words text-gray-900">{expense.description}</h3>
+          <h3 className="line-clamp-2 font-semibold text-balance break-words text-gray-900">
+            {/* The link covers the whole tile; the buttons inside sit above it */}
+            <Link
+              to={expenseRoute(expense.id)}
+              className="rounded after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-primary"
+            >
+              {expense.description}
+            </Link>
+          </h3>
           <p className="mt-0.5 text-xs text-gray-500">
             {formatDay(expense.spent_on)} · Paid by {payerName}
           </p>
+          {expense.group && (
+            <p className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              <UsersIcon className="size-3 shrink-0" />
+              <span className="truncate">{expense.group.name}</span>
+            </p>
+          )}
         </div>
         <p
           className={`shrink-0 text-xl font-semibold tracking-tight tabular-nums ${
@@ -125,14 +141,14 @@ export default function ExpenseCard({ expense, currentUserId, onDelete, isDeleti
           type="button"
           onClick={() => setShowAllSplits((shown) => !shown)}
           aria-expanded={showAllSplits}
-          className="mt-2 self-start rounded text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="relative mt-2 self-start rounded text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {showAllSplits ? "Show less" : `+${hiddenSplitCount} more`}
         </button>
       )}
 
       <footer className="mt-auto flex min-h-8 flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-4">
-        <p className="text-xs text-gray-500">
+        <p className="flex items-center gap-3 text-xs text-gray-500">
           {isFullySettled ? (
             <span className="inline-flex items-center gap-1 font-medium text-green-700">
               <CheckIcon className="size-3.5" />
@@ -143,13 +159,27 @@ export default function ExpenseCard({ expense, currentUserId, onDelete, isDeleti
           ) : (
             `${peopleCount} ${peopleCount === 1 ? "person" : "people"}`
           )}
+          {expense.attachment_count > 0 && (
+            <span className="inline-flex items-center gap-0.5" title="Receipts">
+              <PaperclipIcon className="size-3.5" />
+              <span className="sr-only">Receipts:</span>
+              {expense.attachment_count}
+            </span>
+          )}
+          {expense.comment_count > 0 && (
+            <span className="inline-flex items-center gap-0.5" title="Comments">
+              <ChatIcon className="size-3.5" />
+              <span className="sr-only">Comments:</span>
+              {expense.comment_count}
+            </span>
+          )}
         </p>
         {canDelete && (
           <button
             type="button"
             onClick={() => onDelete(expense)}
             disabled={isDeleting}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50"
+            className="relative inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-red-600 disabled:opacity-50"
           >
             <TrashIcon className="size-3.5" />
             {isDeleting ? "Deleting..." : "Delete"}
