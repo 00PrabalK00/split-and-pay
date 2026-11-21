@@ -29,7 +29,7 @@ export default function Expenses() {
       <p className="mt-1 text-sm text-gray-600">Everything the flat has split, newest first.</p>
       {(error || actionError) && <p className="mt-3 text-sm text-red-600">{actionError ?? error}</p>}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))] gap-4">
         <Link
           to={AppRoute.NEW_EXPENSE}
           className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/40 bg-white p-4 text-primary transition-colors hover:border-primary hover:bg-primary/5"
