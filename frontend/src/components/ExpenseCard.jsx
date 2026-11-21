@@ -82,7 +82,9 @@ export default function ExpenseCard({ expense, currentUserId, onDelete, isDeleti
   const isFullySettled = expense.splits.every((split) => split.settled_at);
   const hasSettledShares = expense.splits.some((split) => split.settlement_id);
   const canDelete =
-    (expense.created_by === currentUserId || expense.paid_by.id === currentUserId) && !hasSettledShares;
+    (expense.created_by === currentUserId || expense.paid_by.id === currentUserId) &&
+    !hasSettledShares &&
+    !expense.has_part_payment;
   const payerName = expense.paid_by.id === currentUserId ? "you" : expense.paid_by.name;
 
   const owedShares = expense.splits.filter((split) => split.user_id !== expense.paid_by.id);

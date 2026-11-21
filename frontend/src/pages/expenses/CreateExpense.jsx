@@ -610,13 +610,16 @@ export default function CreateExpense() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!users.data || !groups.data || (editingId && !expense.data)) return <p className="text-gray-500">Loading...</p>;
 
-  if (expense.data?.splits.some((share) => share.settlement_id)) {
+  const isSettled = expense.data?.splits.some((share) => share.settlement_id);
+  if (isSettled || expense.data?.has_part_payment) {
     return (
       <section className="max-w-2xl">
         <h1 className="text-2xl font-bold">Edit expense</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Someone has already settled part of this expense, so it can't be changed. Comments and receipts can still
-          be added.
+          {isSettled
+            ? "Someone has already settled part of this expense, so it can't be changed."
+            : "A part payment has been made towards this expense, so it can't be changed until it's settled in full."}{" "}
+          Comments and receipts can still be added.
         </p>
         <Link to={expenseRoute(editingId)} className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
           ← Back to the expense

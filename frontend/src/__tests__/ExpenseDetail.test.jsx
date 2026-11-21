@@ -87,4 +87,11 @@ describe("ExpenseDetail", () => {
     expect(await screen.findByText(/can't be edited or deleted/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Edit/ })).not.toBeInTheDocument();
   });
+
+  it("hides edit and delete while a part payment is open", async () => {
+    renderDetail({ ...baseExpense, has_part_payment: true });
+    expect(await screen.findByText(/part payment has been made/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Edit/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
+  });
 });

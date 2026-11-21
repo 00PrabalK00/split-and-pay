@@ -226,7 +226,7 @@ export default function ExpenseDetail() {
   const isFullySettled = expense.splits.every((split) => split.settled_at);
   const hasSettledShares = expense.splits.some((split) => split.settlement_id);
   const isOwner = expense.created_by === user.id || expense.paid_by.id === user.id;
-  const canChange = isOwner && !hasSettledShares;
+  const canChange = isOwner && !hasSettledShares && !expense.has_part_payment;
   const payerName = expense.paid_by.id === user.id ? "you" : expense.paid_by.name;
 
   const handleDelete = async () => {
@@ -298,7 +298,11 @@ export default function ExpenseDetail() {
               </button>
             </>
           ) : (
-            <p className="text-xs text-gray-500">Part of this is settled, so it can't be edited or deleted.</p>
+            <p className="text-xs text-gray-500">
+              {hasSettledShares
+                ? "Part of this is settled, so it can't be edited or deleted."
+                : "A part payment has been made towards this, so it can't be edited or deleted until it's settled in full."}
+            </p>
           )}
         </div>
       )}
